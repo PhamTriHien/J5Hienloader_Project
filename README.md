@@ -170,7 +170,7 @@ Toàn bộ **32 phân hệ logic** của bản gốc J2ME-Loader (`upstream/`) �
 ## 📂 Cấu Trúc Thư Mục Dự Án
 
 ```
-c:\j2meloader\
+J5Hienloader_Project/
 ├── universal_loader/              # Kiến trúc mới thống nhất đa nền tảng
 │   ├── core/                      # Lõi C++20 Zero-Overhead Engine
 │   │   ├── include/               # Header C-ABI xuất khẩu (j2me_core.h)
@@ -279,7 +279,7 @@ Dự án tuyệt đối tuân thủ theo **Quy tắc Tối thượng Số 0 (Rul
 ## 📂 Cấu Trúc Thư Mục Dự Án
 
 ```
-c:\j2meloader\
+J5Hienloader_Project/
 ├── universal_loader/              # Kiến trúc mới thống nhất đa nền tảng
 │   ├── core/                      # Lõi C++20 Zero-Overhead Engine
 │   │   ├── include/               # Header C-ABI xuất khẩu (j2me_core.h)
