@@ -662,7 +662,7 @@ input, textarea, select {
 #game-canvas {
   display: block;
   background-color: #000000;
-  image-rendering: auto;
+  image-rendering: pixelated;
   touch-action: none;
 }
 

@@ -100,6 +100,7 @@
   const emuSlotBadge = document.getElementById('emu-slot-badge');
   const emuSpeedBadge = document.getElementById('emu-speed-badge');
   const btnEmuScale = document.getElementById('btn-emu-scale');
+  const btnEmuRender = document.getElementById('btn-emu-render');
   const btnEmuSpeed = document.getElementById('btn-emu-speed');
   const btnEmuPause = document.getElementById('btn-emu-pause');
   const iconEmuPause = document.getElementById('icon-emu-pause');
@@ -112,6 +113,15 @@
   const btnEmuMenu = document.getElementById('btn-emu-menu');
   const btnEmuHideBar = document.getElementById('btn-emu-hide-bar');
   const btnShowTopBar = document.getElementById('btn-show-top-bar');
+
+  const RENDER_MODE_BADGES = ['Gốc', 'Nét', 'Mịn', 'HQ', 'HD'];
+  const RENDER_MODE_NAMES = [
+    'Gốc J2ME (Pixel 1:1)',
+    'Sắc nét (Sharp Pixel Gốc)',
+    'Mịn tuyến tính (Linear)',
+    'Khử răng cưa HQ (Scale4x)',
+    'HD Mở rộng (320p + HQ)'
+  ];
 
   const viewportContainer = document.getElementById('viewport-container');
   const phoneFrameWrap = document.getElementById('phone-frame-wrap');
@@ -326,17 +336,25 @@
     try {
       const isV4 = raw.Version === 4;
       const vkAlphaPct = isV4 && typeof raw.VkAlphaPct === 'number' ? raw.VkAlphaPct : 95;
+      const filterLin = profileGetInt(h, 'screenFilter', 0) !== 0;
+      const renderMode =
+        isV4 && typeof raw.RenderMode === 'number' && raw.RenderMode >= 0 && raw.RenderMode <= 4
+          ? raw.RenderMode
+          : filterLin
+          ? 2
+          : 0;
 
       return {
         screenWidth: isV4 ? profileGetInt(h, 'screenWidth', defW || 240) : defW || 240,
         screenHeight: isV4 ? profileGetInt(h, 'screenHeight', defH || 320) : defH || 320,
         scaleMode: isV4 && typeof raw.UiScaleMode === 'number' ? raw.UiScaleMode : 0,
+        renderMode,
         autoMatch: isV4 && raw.ScreenAutoMatch !== undefined ? Boolean(raw.ScreenAutoMatch) : true,
         keepAspect: profileGetInt(h, 'screenKeepAspectRatio', 1) !== 0,
         orientation: isV4 ? profileGetInt(h, 'orientation', 0) : 0,
         bgColor: isV4 ? profileGetInt(h, 'screenBackgroundColor', 0x000000) : 0x000000,
         rotateCanvas: Boolean(raw.RotateCanvas ?? false),
-        filterLinear: profileGetInt(h, 'screenFilter', 0) !== 0,
+        filterLinear: renderMode !== 0,
         touchInput: profileGetInt(h, 'touchInput', 1) !== 0,
         fullscreen: profileGetInt(h, 'forceFullscreen', 1) !== 0,
         hwAccel: profileGetInt(h, 'hwAcceleration', 1) !== 0,
@@ -370,6 +388,7 @@
   function writeProfileConfigObject(appInfo, cfg) {
     const h = loadProfileHandleForApp(appInfo);
     try {
+      const renderMode = typeof cfg.renderMode === 'number' ? cfg.renderMode : cfg.filterLinear ? 2 : 0;
       const scaleRatio = cfg.scaleMode === 4 ? 200 : cfg.scaleMode === 5 ? 300 : 100;
       const scaleType = cfg.scaleMode === 2 ? 2 : cfg.scaleMode === 3 ? 0 : 1;
       const vkAlpha255 = Math.max(25, Math.min(255, Math.round((cfg.vkAlpha / 100) * 255)));
@@ -382,7 +401,7 @@
       profileSetInt(h, 'screenScaleToFit', cfg.scaleMode !== 3 ? 1 : 0);
       profileSetInt(h, 'screenKeepAspectRatio', cfg.keepAspect && cfg.scaleMode !== 2 ? 1 : 0);
       profileSetInt(h, 'screenScaleType', scaleType);
-      profileSetInt(h, 'screenFilter', cfg.filterLinear ? 1 : 0);
+      profileSetInt(h, 'screenFilter', renderMode === 2 ? 1 : 0);
       profileSetInt(h, 'immediateMode', cfg.immediateMode ? 1 : 0);
       profileSetInt(h, 'hwAcceleration', cfg.hwAccel ? 1 : 0);
       profileSetInt(h, 'parallelRedrawScreen', cfg.parallelRedraw ? 1 : 0);
@@ -413,6 +432,7 @@
           } catch (_) {}
           merged.Version = 4;
           merged.UiScaleMode = cfg.scaleMode;
+          merged.RenderMode = renderMode;
           merged.ScreenAutoMatch = Boolean(cfg.autoMatch);
           merged.Encoding = cfg.encoding || 'UTF-8';
           merged.ShowPhoneFrame = Boolean(cfg.showPhoneFrame);
@@ -732,7 +752,8 @@
     if (rect.width <= 80 || rect.height <= 80) {
       return { w: cfg.screenWidth || 240, h: cfg.screenHeight || 320 };
     }
-    const baseShort = Math.max(320, Math.min(cfg.screenWidth || 240, cfg.screenHeight || 320));
+    const rawShort = Math.min(cfg.screenWidth || 240, cfg.screenHeight || 320);
+    const baseShort = cfg.renderMode === 4 ? Math.max(320, rawShort) : rawShort;
     let targetW;
     let targetH;
     if (rect.width >= rect.height) {
@@ -740,7 +761,7 @@
       targetW = Math.round((targetH * rect.width) / rect.height);
     } else {
       targetW = baseShort;
-      targetH = Math.max(320, Math.round((targetW * rect.height) / rect.width));
+      targetH = Math.round((targetW * rect.height) / rect.width);
     }
     return {
       w: Math.max(128, Math.min(2048, targetW)),
@@ -770,7 +791,7 @@
     session.activeFbH = targetH;
     session.fbW = targetW;
     session.fbH = targetH;
-    session.lastPrescale = 0;
+    session.lastScaleArg = 0;
     gameCanvas.width = targetW;
     gameCanvas.height = targetH;
     cachedImageData = null;
@@ -778,6 +799,26 @@
     Module._j2me_core_set_volume(session.engine, cfg.soundEnabled ? cfg.soundVolume : 0);
     Module._j2me_core_set_fps_limit(session.engine, cfg.fpsLimit > 0 ? cfg.fpsLimit : 0);
     Module._j2me_core_keymap_set_layout(cfg.keyLayout);
+  }
+
+  function applyRenderModeChange(session, newMode) {
+    if (!session) return;
+    const cfg = session.profile || readProfileConfigObject(session.app);
+    cfg.renderMode = ((newMode | 0) % 5 + 5) % 5;
+    cfg.filterLinear = cfg.renderMode !== 0;
+    session.profile = cfg;
+    writeProfileConfigObject(session.app, cfg);
+    if (cfg.autoMatch && cfg.scaleMode === 0 && !cfg.showPhoneFrame) {
+      const dims = computeViewportTargetDimensions(cfg);
+      if (dims.w > 0 && dims.h > 0) {
+        session.activeFbW = dims.w;
+        session.activeFbH = dims.h;
+        Module._j2me_core_set_screen_dimensions(session.engine, dims.w, dims.h);
+      }
+    }
+    forceCanvasRedraw = true;
+    updateEmulatorChrome();
+    updateEmulatorLayout();
   }
 
   function launchSession(app, forceNewClone = false) {
@@ -817,7 +858,7 @@
       activeFbH: 320,
       fbW: 240,
       fbH: 320,
-      lastPrescale: 0,
+      lastScaleArg: 0,
       get displayLabel() {
         return this.cloneIndex > 1 ? `${this.app.title} (#${this.cloneIndex})` : this.app.title;
       }
@@ -982,6 +1023,15 @@
       btnShowTopBar.classList.toggle('hidden', showBar);
     }
 
+    const rMode =
+      activeSession.profile && typeof activeSession.profile.renderMode === 'number'
+        ? activeSession.profile.renderMode
+        : 0;
+    if (btnEmuRender) {
+      btnEmuRender.textContent = RENDER_MODE_BADGES[rMode] || 'Gốc';
+      btnEmuRender.classList.toggle('active-tool', rMode !== 0);
+    }
+
     emuTitleText.textContent = activeSession.app.title;
     if (activeSession.cloneIndex > 1) {
       emuSlotBadge.textContent = `Bản sao ${activeSession.cloneIndex}`;
@@ -1095,7 +1145,8 @@
       phoneFrameWrap.classList.remove('framed');
     }
 
-    if (cfg.filterLinear) {
+    const rMode = typeof cfg.renderMode === 'number' ? cfg.renderMode : cfg.filterLinear ? 2 : 0;
+    if (rMode !== 0) {
       gameCanvas.classList.add('filter-linear');
     } else {
       gameCanvas.classList.remove('filter-linear');
@@ -1133,6 +1184,7 @@
     if (!activeSession) return;
     const cfg = activeSession.profile || {
       scaleMode: 0,
+      renderMode: 0,
       keepAspect: true,
       autoMatch: true,
       showPhoneFrame: false,
@@ -1153,7 +1205,8 @@
         const curW = Math.max(64, curRect.width - (activeSession.profile.showPhoneFrame ? 40 : 0));
         const curH = Math.max(64, curRect.height - (activeSession.profile.showPhoneFrame ? 68 : 0));
         if (curW <= 80 || curH <= 80) return;
-        const baseShort = Math.max(320, Math.min(cfg.screenWidth || 240, cfg.screenHeight || 320));
+        const rawShort = Math.min(cfg.screenWidth || 240, cfg.screenHeight || 320);
+        const baseShort = cfg.renderMode === 4 ? Math.max(320, rawShort) : rawShort;
         let targetW;
         let targetH;
         if (curW >= curH) {
@@ -1161,7 +1214,7 @@
           targetW = Math.round((targetH * curW) / curH);
         } else {
           targetW = baseShort;
-          targetH = Math.max(320, Math.round((targetW * curH) / curW));
+          targetH = Math.round((targetW * curH) / curW);
         }
         targetW = Math.max(128, Math.min(2048, targetW));
         targetH = Math.max(128, Math.min(2048, targetH));
@@ -1232,23 +1285,37 @@
       pollNetworkEvents();
       pollHttpBridge();
 
-      if (!activeSession || activeSession.isPaused || document.hidden) return;
+      if (!activeSession || (activeSession.isPaused && !forceCanvasRedraw) || document.hidden) return;
 
       const eng = activeSession.engine;
       if (!eng) return;
 
-      pollLcduiScreen(activeSession);
-      pollCanvasCommands(activeSession);
+      if (!activeSession.isPaused) {
+        pollLcduiScreen(activeSession);
+        pollCanvasCommands(activeSession);
+      }
 
+      const rMode =
+        activeSession.profile && typeof activeSession.profile.renderMode === 'number'
+          ? activeSession.profile.renderMode
+          : 0;
       const dpr = window.devicePixelRatio || 1;
       const logicalW = activeSession.fbW || activeSession.activeFbW || 240;
       const logicalH = activeSession.fbH || activeSession.activeFbH || 320;
       const dispW = parseFloat(gameCanvas.style.width) || logicalW;
       const physRatio = (dispW * dpr) / Math.max(1, logicalW);
-      let prescale = Math.min(4, Math.max(1, Math.ceil(physRatio)));
-      while (prescale > 1 && (logicalW * prescale > 2560 || logicalH * prescale > 1600)) {
-        prescale--;
+
+      // Chế độ 0 (Gốc J2ME 1:1) & 2 (Mịn tuyến tính): Sao chép khung hình 1:1 nguyên bản (prescale = 1)
+      // Chế độ 1 (Sắc nét Sharp Pixel): Nhân điểm ảnh số nguyên 2x-4x chuẩn J2ME gốc (scaleArg > 1)
+      // Chế độ 3 (Khử răng cưa HQ) & 4 (HD 320p + HQ): Tái tạo biên Scale2x/3x/4x (scaleArg < 0)
+      let prescale = 1;
+      if (rMode === 1 || rMode === 3 || rMode === 4) {
+        prescale = Math.min(4, Math.max(2, Math.ceil(physRatio)));
+        while (prescale > 1 && (logicalW * prescale > 2560 || logicalH * prescale > 1600)) {
+          prescale--;
+        }
       }
+      const scaleArg = rMode === 3 || rMode === 4 ? -prescale : prescale;
 
       const minCap = logicalW * logicalH * prescale * prescale * 4;
       if (!ptrFrameRgba || capFrameRgba < minCap) {
@@ -1257,12 +1324,12 @@
         ptrFrameRgba = Module._malloc(capFrameRgba);
       }
 
-      const needForce = forceCanvasRedraw || activeSession.lastPrescale !== prescale;
+      const needForce = forceCanvasRedraw || activeSession.lastScaleArg !== scaleArg;
       let copied = Module._j2me_core_copy_frame_rgba(
         eng,
         ptrFrameRgba,
         capFrameRgba,
-        prescale,
+        scaleArg,
         needForce,
         ptrOutW,
         ptrOutH
@@ -1280,7 +1347,7 @@
             eng,
             ptrFrameRgba,
             capFrameRgba,
-            prescale,
+            scaleArg,
             true,
             ptrOutW,
             ptrOutH
@@ -1298,7 +1365,7 @@
           const logicalChanged = activeSession.fbW !== w || activeSession.fbH !== h;
           activeSession.fbW = w;
           activeSession.fbH = h;
-          activeSession.lastPrescale = prescale;
+          activeSession.lastScaleArg = scaleArg;
           if (gameCanvas.width !== outW || gameCanvas.height !== outH || !cachedImageData) {
             gameCanvas.width = outW;
             gameCanvas.height = outH;
@@ -2758,6 +2825,15 @@
                 <option value="5" ${cfg.scaleMode === 5 ? 'selected' : ''}>3x Phóng to</option>
               </select>
             </div>
+            <div class="section-header">Chế độ kết xuất đồ họa (Graphics Render Mode)</div>
+            <div class="form-field">
+              <select id="cfg-render-mode" class="select-input">
+                ${RENDER_MODE_NAMES.map(
+                  (name, idx) =>
+                    `<option value="${idx}" ${(cfg.renderMode || 0) === idx ? 'selected' : ''}>${escapeHtml(name)}</option>`
+                ).join('')}
+              </select>
+            </div>
             <div class="switch-row">
               <div><div class="switch-label">Tự khớp vùng game (Auto Match)</div><div class="switch-sub">Tự động cập nhật độ phân giải theo vùng trống</div></div>
               <input type="checkbox" id="cfg-auto-match" class="toggle-switch" ${cfg.autoMatch ? 'checked' : ''} />
@@ -2769,10 +2845,6 @@
             <div class="switch-row">
               <div><div class="switch-label">Hiển thị khung máy cổ điển (Phone Bezel)</div></div>
               <input type="checkbox" id="cfg-phone-frame" class="toggle-switch" ${cfg.showPhoneFrame ? 'checked' : ''} />
-            </div>
-            <div class="switch-row">
-              <div><div class="switch-label">Làm mịn điểm ảnh (Bilinear Filter)</div><div class="switch-sub">Tắt để giữ nét Pixel-Art sắc cạnh</div></div>
-              <input type="checkbox" id="cfg-filter" class="toggle-switch" ${cfg.filterLinear ? 'checked' : ''} />
             </div>
             <div class="switch-row">
               <div><div class="switch-label">Hiển thị bộ đếm FPS thực tế</div></div>
@@ -2992,10 +3064,10 @@
       inpW.value = '240';
       inpH.value = '320';
       document.getElementById('cfg-scale-mode').value = '0';
-      document.getElementById('cfg-auto-match').checked = false;
+      document.getElementById('cfg-render-mode').value = '0';
+      document.getElementById('cfg-auto-match').checked = true;
       document.getElementById('cfg-keep-aspect').checked = true;
-      document.getElementById('cfg-phone-frame').checked = true;
-      document.getElementById('cfg-filter').checked = false;
+      document.getElementById('cfg-phone-frame').checked = false;
       document.getElementById('cfg-show-fps').checked = false;
       document.getElementById('cfg-fps').value = '60';
       document.getElementById('cfg-orientation').value = '0';
@@ -3006,17 +3078,17 @@
       document.getElementById('cfg-key-layout').value = '0';
       document.getElementById('cfg-vk-type').value = '0';
       document.getElementById('cfg-vk-shape').value = '0';
-      document.getElementById('cfg-vk-alpha').value = '90';
-      document.getElementById('lbl-vk-alpha').textContent = '90%';
+      document.getElementById('cfg-vk-alpha').value = '95';
+      document.getElementById('lbl-vk-alpha').textContent = '95%';
       document.getElementById('cfg-vk-scale').value = '100';
       document.getElementById('lbl-vk-scale').textContent = '100%';
       document.getElementById('cfg-font-aa').checked = true;
-      document.getElementById('cfg-fs-s').value = '12';
-      document.getElementById('lbl-fs-s').textContent = '12 px';
-      document.getElementById('cfg-fs-m').value = '14';
-      document.getElementById('lbl-fs-m').textContent = '14 px';
-      document.getElementById('cfg-fs-l').value = '18';
-      document.getElementById('lbl-fs-l').textContent = '18 px';
+      document.getElementById('cfg-fs-s').value = '18';
+      document.getElementById('lbl-fs-s').textContent = '18 px';
+      document.getElementById('cfg-fs-m').value = '22';
+      document.getElementById('lbl-fs-m').textContent = '22 px';
+      document.getElementById('cfg-fs-l').value = '26';
+      document.getElementById('lbl-fs-l').textContent = '26 px';
       document.getElementById('cfg-sound').checked = true;
       document.getElementById('cfg-vol').value = '100';
       document.getElementById('lbl-vol').textContent = '100%';
@@ -3042,15 +3114,17 @@
 
     document.getElementById('cfg-btn-save').onclick = () => {
       const bgHex = parseInt(document.getElementById('cfg-bgcolor').value, 16);
+      const selectedRenderMode = parseInt(document.getElementById('cfg-render-mode').value, 10) || 0;
       const updated = {
         ...cfg,
         screenWidth: Math.max(64, parseInt(inpW.value, 10) || 240),
         screenHeight: Math.max(64, parseInt(inpH.value, 10) || 320),
         scaleMode: parseInt(document.getElementById('cfg-scale-mode').value, 10),
+        renderMode: selectedRenderMode,
         autoMatch: document.getElementById('cfg-auto-match').checked,
         keepAspect: document.getElementById('cfg-keep-aspect').checked,
         showPhoneFrame: document.getElementById('cfg-phone-frame').checked,
-        filterLinear: document.getElementById('cfg-filter').checked,
+        filterLinear: selectedRenderMode !== 0,
         showFps: document.getElementById('cfg-show-fps').checked,
         fpsLimit: parseInt(document.getElementById('cfg-fps').value, 10),
         orientation: parseInt(document.getElementById('cfg-orientation').value, 10),
@@ -3077,10 +3151,12 @@
       writeProfileConfigObject(app, updated);
 
       for (const s of sessions.filter((x) => x.app.id === app.id)) {
-        applySessionProfileToEngine(s);
+        const dims = computeViewportTargetDimensions(updated);
+        applySessionProfileToEngine(s, dims.w, dims.h);
         s.showKeypad = s.profile.vkEnabled;
       }
       if (activeSession && activeSession.app.id === app.id) {
+        forceCanvasRedraw = true;
         updateEmulatorChrome();
         updateEmulatorLayout();
       }
@@ -3211,6 +3287,7 @@
     const persistAndApplyCfg = () => {
       s.profile = cfg;
       writeProfileConfigObject(s.app, cfg);
+      forceCanvasRedraw = true;
       updateEmulatorChrome();
       updateEmulatorLayout();
     };
@@ -3250,6 +3327,15 @@
                 )
                 .join('')}
             </div>
+          </div>
+          <div class="ig-ctrl-row">
+            <span class="ig-ctrl-label">Đồ họa Render:</span>
+            <select id="ig-render-sel" class="select-input" style="width:185px;padding:6px 8px;">
+              ${RENDER_MODE_NAMES.map(
+                (name, idx) =>
+                  `<option value="${idx}" ${(cfg.renderMode || 0) === idx ? 'selected' : ''}>${escapeHtml(name)}</option>`
+              ).join('')}
+            </select>
           </div>
           <div class="ig-ctrl-row">
             <span class="ig-ctrl-label">Hướng màn hình:</span>
@@ -3295,8 +3381,8 @@
           <button class="ig-feature-chip ${cfg.showPhoneFrame ? 'active' : ''}" id="ig-chip-frame">
             Khung máy: ${cfg.showPhoneFrame ? 'Bật' : 'Tắt'}
           </button>
-          <button class="ig-feature-chip ${!cfg.filterLinear ? 'active' : ''}" id="ig-chip-pixel">
-            Pixel Art: ${cfg.filterLinear ? 'Mịn' : 'Sắc nét'}
+          <button class="ig-feature-chip ${(cfg.renderMode || 0) !== 0 ? 'active' : ''}" id="ig-chip-pixel">
+            Render: ${RENDER_MODE_BADGES[cfg.renderMode || 0] || 'Gốc'}
           </button>
           <button class="ig-feature-chip" id="ig-chip-clone" style="color:#38BDF8;">
             + Nhân bản (Clone)
@@ -3359,6 +3445,20 @@
       };
     });
 
+    const igRenderSel = document.getElementById('ig-render-sel');
+    const igChipPixel = document.getElementById('ig-chip-pixel');
+    if (igRenderSel) {
+      igRenderSel.onchange = (e) => {
+        const nextMode = parseInt(e.target.value, 10) || 0;
+        applyRenderModeChange(s, nextMode);
+        if (igChipPixel) {
+          igChipPixel.classList.toggle('active', nextMode !== 0);
+          igChipPixel.textContent = `Render: ${RENDER_MODE_BADGES[nextMode] || 'Gốc'}`;
+        }
+        showToast(`Đồ họa: ${RENDER_MODE_NAMES[nextMode]}`, 1500);
+      };
+    }
+
     document.getElementById('ig-orient-sel').onchange = (e) => {
       cfg.orientation = parseInt(e.target.value, 10);
       if (
@@ -3415,10 +3515,14 @@
     };
 
     document.getElementById('ig-chip-pixel').onclick = (e) => {
-      cfg.filterLinear = !cfg.filterLinear;
-      e.currentTarget.classList.toggle('active', !cfg.filterLinear);
-      e.currentTarget.textContent = `Pixel Art: ${cfg.filterLinear ? 'Mịn' : 'Sắc nét'}`;
-      persistAndApplyCfg();
+      const nextMode = ((cfg.renderMode || 0) + 1) % 5;
+      applyRenderModeChange(s, nextMode);
+      e.currentTarget.classList.toggle('active', nextMode !== 0);
+      e.currentTarget.textContent = `Render: ${RENDER_MODE_BADGES[nextMode] || 'Gốc'}`;
+      if (igRenderSel) {
+        igRenderSel.value = String(nextMode);
+      }
+      showToast(`Đồ họa: ${RENDER_MODE_NAMES[nextMode]}`, 1500);
     };
 
     document.getElementById('ig-chip-clone').onclick = () => {
@@ -3646,6 +3750,16 @@
         '3x Phóng to'
       ];
       showToast(`Tỉ lệ: ${scaleLabels[cfg.scaleMode]}`, 1400);
+    });
+  }
+
+  if (btnEmuRender) {
+    btnEmuRender.addEventListener('click', () => {
+      if (!activeSession) return;
+      const cfg = activeSession.profile || readProfileConfigObject(activeSession.app);
+      const nextMode = ((cfg.renderMode || 0) + 1) % 5;
+      applyRenderModeChange(activeSession, nextMode);
+      showToast(`Đồ họa: ${RENDER_MODE_NAMES[nextMode]}`, 1500);
     });
   }
 
