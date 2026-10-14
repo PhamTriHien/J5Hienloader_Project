@@ -729,16 +729,15 @@
     if (rect.width <= 80 || rect.height <= 80) {
       return { w: cfg.screenWidth || 240, h: cfg.screenHeight || 320 };
     }
-    const baseShort = Math.min(cfg.screenWidth || 240, cfg.screenHeight || 320);
+    const baseShort = Math.max(320, Math.min(cfg.screenWidth || 240, cfg.screenHeight || 320));
     let targetW;
     let targetH;
     if (rect.width >= rect.height) {
-      // Đảm bảo chiều cao màn hình ngang tối thiểu 320px để hiển thị sắc nét và không chồng lấp thanh kỹ năng
-      targetH = Math.max(320, baseShort);
+      targetH = baseShort;
       targetW = Math.round((targetH * rect.width) / rect.height);
     } else {
       targetW = baseShort;
-      targetH = Math.round((baseShort * rect.height) / rect.width);
+      targetH = Math.max(320, Math.round((targetW * rect.height) / rect.width));
     }
     return {
       w: Math.max(128, Math.min(2048, targetW)),
@@ -1142,15 +1141,15 @@
         const curW = Math.max(64, curRect.width - (activeSession.profile.showPhoneFrame ? 40 : 0));
         const curH = Math.max(64, curRect.height - (activeSession.profile.showPhoneFrame ? 68 : 0));
         if (curW <= 80 || curH <= 80) return;
-        const baseShort = Math.min(cfg.screenWidth || 240, cfg.screenHeight || 320);
+        const baseShort = Math.max(320, Math.min(cfg.screenWidth || 240, cfg.screenHeight || 320));
         let targetW;
         let targetH;
         if (curW >= curH) {
-          targetH = Math.max(320, baseShort);
+          targetH = baseShort;
           targetW = Math.round((targetH * curW) / curH);
         } else {
           targetW = baseShort;
-          targetH = Math.round((baseShort * curH) / curW);
+          targetH = Math.max(320, Math.round((targetW * curH) / curW));
         }
         targetW = Math.max(128, Math.min(2048, targetW));
         targetH = Math.max(128, Math.min(2048, targetH));
