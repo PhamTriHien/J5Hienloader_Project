@@ -114,6 +114,7 @@
   const btnEmuHideBar = document.getElementById('btn-emu-hide-bar');
   const btnShowTopBar = document.getElementById('btn-show-top-bar');
 
+  // Bảng định danh 5 chế độ kết xuất đồ họa (0: Gốc J2ME 1:1, 1: Sắc nét Sharp Pixel, 2: Mịn Linear, 3: HQ Scale4x, 4: HD 320p + HQ)
   const RENDER_MODE_BADGES = ['Gốc', 'Nét', 'Mịn', 'HQ', 'HD'];
   const RENDER_MODE_NAMES = [
     'Gốc J2ME (Pixel 1:1)',
@@ -801,6 +802,7 @@
     Module._j2me_core_keymap_set_layout(cfg.keyLayout);
   }
 
+  // Áp dụng chế độ kết xuất đồ họa mới, cập nhật độ phân giải nội bộ và vẽ lại khung hình tức thì
   function applyRenderModeChange(session, newMode) {
     if (!session) return;
     const cfg = session.profile || readProfileConfigObject(session.app);
@@ -3753,6 +3755,7 @@
     });
   }
 
+  // Nút chuyển nhanh 5 chế độ Render đồ họa trên thanh công cụ giả lập
   if (btnEmuRender) {
     btnEmuRender.addEventListener('click', () => {
       if (!activeSession) return;
@@ -3805,6 +3808,7 @@
   btnEmuCanvasCmds.addEventListener('click', openCanvasCommandsSheet);
   btnEmuMenu.addEventListener('click', openInGameMenuSheet);
 
+  // Nút kéo mở và nút thu gọn thanh công cụ phía trên để chơi toàn màn hình
   if (btnShowTopBar) {
     btnShowTopBar.addEventListener('click', () => {
       if (!activeSession) return;

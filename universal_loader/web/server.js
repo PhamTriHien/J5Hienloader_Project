@@ -434,12 +434,12 @@ function generateSelfSignedTlsCredentials() {
     return derTag(0x02, b);
   }
 
-  // OID sha256WithRSAEncryption (1.2.840.113549.1.1.11)
+  // Định danh thuật toán ký số OID sha256WithRSAEncryption (1.2.840.113549.1.1.11)
   const algId = derSeq(
     derOid([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b]),
     Buffer.from([0x05, 0x00])
   );
-  // Subject/Issuer CN=J5Hienloader Local LAN (OID 2.5.4.3)
+  // Thông tin định danh chủ thể/nhà phát hành chứng chỉ CN=J5Hienloader Local LAN (OID 2.5.4.3)
   const name = derSeq(derSet(derSeq(derOid([0x55, 0x04, 0x03]), derUtf8('J5Hienloader Local LAN'))));
   const now = new Date(Date.now() - 86400000);
   const exp = new Date(Date.now() + 3650 * 86400000);
