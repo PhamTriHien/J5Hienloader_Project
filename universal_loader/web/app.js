@@ -733,8 +733,9 @@
     let targetW;
     let targetH;
     if (rect.width >= rect.height) {
-      targetH = baseShort;
-      targetW = Math.round((baseShort * rect.width) / rect.height);
+      // Đảm bảo chiều cao màn hình ngang tối thiểu 320px để hiển thị sắc nét và không chồng lấp thanh kỹ năng
+      targetH = Math.max(320, baseShort);
+      targetW = Math.round((targetH * rect.width) / rect.height);
     } else {
       targetW = baseShort;
       targetH = Math.round((baseShort * rect.height) / rect.width);
@@ -765,6 +766,9 @@
     const targetH = overrideH || cfg.screenHeight || 320;
     session.activeFbW = targetW;
     session.activeFbH = targetH;
+    session.fbW = targetW;
+    session.fbH = targetH;
+    session.lastPrescale = 0;
     gameCanvas.width = targetW;
     gameCanvas.height = targetH;
     cachedImageData = null;
@@ -808,6 +812,9 @@
       profile: null,
       activeFbW: 240,
       activeFbH: 320,
+      fbW: 240,
+      fbH: 320,
+      lastPrescale: 0,
       get displayLabel() {
         return this.cloneIndex > 1 ? `${this.app.title} (#${this.cloneIndex})` : this.app.title;
       }
@@ -1139,16 +1146,16 @@
         let targetW;
         let targetH;
         if (curW >= curH) {
-          targetH = baseShort;
-          targetW = Math.round((baseShort * curW) / curH);
+          targetH = Math.max(320, baseShort);
+          targetW = Math.round((targetH * curW) / curH);
         } else {
           targetW = baseShort;
           targetH = Math.round((baseShort * curH) / curW);
         }
         targetW = Math.max(128, Math.min(2048, targetW));
         targetH = Math.max(128, Math.min(2048, targetH));
-        if (Math.abs((activeSession.activeFbW || gameCanvas.width) - targetW) >= 4 ||
-            Math.abs((activeSession.activeFbH || gameCanvas.height) - targetH) >= 4) {
+        if (Math.abs((activeSession.activeFbW || activeSession.fbW || 240) - targetW) >= 4 ||
+            Math.abs((activeSession.activeFbH || activeSession.fbH || 320) - targetH) >= 4) {
           activeSession.activeFbW = targetW;
           activeSession.activeFbH = targetH;
           forceCanvasRedraw = true;
@@ -1157,8 +1164,8 @@
       }, 250);
     }
 
-    const fbW = gameCanvas.width || 240;
-    const fbH = gameCanvas.height || 320;
+    const fbW = activeSession.fbW || activeSession.activeFbW || 240;
+    const fbH = activeSession.fbH || activeSession.activeFbH || 320;
     let dispW = fbW;
     let dispH = fbH;
 
@@ -1222,35 +1229,74 @@
       pollLcduiScreen(activeSession);
       pollCanvasCommands(activeSession);
 
-      const maxCap = 1280 * 1280 * 4;
-      if (!ptrFrameRgba || capFrameRgba < maxCap) {
+      const dpr = window.devicePixelRatio || 1;
+      const logicalW = activeSession.fbW || activeSession.activeFbW || 240;
+      const logicalH = activeSession.fbH || activeSession.activeFbH || 320;
+      const dispW = parseFloat(gameCanvas.style.width) || logicalW;
+      const physRatio = (dispW * dpr) / Math.max(1, logicalW);
+      let prescale = Math.min(4, Math.max(1, Math.ceil(physRatio)));
+      while (prescale > 1 && (logicalW * prescale > 2560 || logicalH * prescale > 1600)) {
+        prescale--;
+      }
+
+      const minCap = logicalW * logicalH * prescale * prescale * 4;
+      if (!ptrFrameRgba || capFrameRgba < minCap) {
         if (ptrFrameRgba) Module._free(ptrFrameRgba);
-        capFrameRgba = maxCap;
+        capFrameRgba = Math.max(minCap, 1280 * 1280 * 4);
         ptrFrameRgba = Module._malloc(capFrameRgba);
       }
 
-      const copied = Module._j2me_core_copy_frame_rgba(
+      const needForce = forceCanvasRedraw || activeSession.lastPrescale !== prescale;
+      let copied = Module._j2me_core_copy_frame_rgba(
         eng,
         ptrFrameRgba,
         capFrameRgba,
-        1,
-        forceCanvasRedraw,
+        prescale,
+        needForce,
         ptrOutW,
         ptrOutH
       );
+
+      if (copied < 0) {
+        const reqW = Module.HEAP32[ptrOutW >> 2];
+        const reqH = Module.HEAP32[ptrOutH >> 2];
+        const reqCap = reqW * reqH * prescale * prescale * 4;
+        if (reqCap > 0) {
+          if (ptrFrameRgba) Module._free(ptrFrameRgba);
+          capFrameRgba = reqCap;
+          ptrFrameRgba = Module._malloc(capFrameRgba);
+          copied = Module._j2me_core_copy_frame_rgba(
+            eng,
+            ptrFrameRgba,
+            capFrameRgba,
+            prescale,
+            true,
+            ptrOutW,
+            ptrOutH
+          );
+        }
+      }
 
       if (copied === 1) {
         forceCanvasRedraw = false;
         const w = Module.HEAP32[ptrOutW >> 2];
         const h = Module.HEAP32[ptrOutH >> 2];
         if (w > 0 && h > 0) {
-          if (gameCanvas.width !== w || gameCanvas.height !== h || !cachedImageData) {
-            gameCanvas.width = w;
-            gameCanvas.height = h;
-            cachedImageData = gameCtx.createImageData(w, h);
+          const outW = w * prescale;
+          const outH = h * prescale;
+          const logicalChanged = activeSession.fbW !== w || activeSession.fbH !== h;
+          activeSession.fbW = w;
+          activeSession.fbH = h;
+          activeSession.lastPrescale = prescale;
+          if (gameCanvas.width !== outW || gameCanvas.height !== outH || !cachedImageData) {
+            gameCanvas.width = outW;
+            gameCanvas.height = outH;
+            cachedImageData = gameCtx.createImageData(outW, outH);
+          }
+          if (logicalChanged) {
             layoutGameCanvas();
           }
-          const byteLen = w * h * 4;
+          const byteLen = outW * outH * 4;
           cachedImageData.data.set(Module.HEAPU8.subarray(ptrFrameRgba, ptrFrameRgba + byteLen));
           gameCtx.putImageData(cachedImageData, 0, 0);
         }
@@ -1274,8 +1320,10 @@
   function mapCanvasTouchCoords(clientX, clientY) {
     const rect = gameCanvas.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return { x: 0, y: 0 };
-    const x = Math.max(0, Math.min(gameCanvas.width - 1, Math.floor(((clientX - rect.left) / rect.width) * gameCanvas.width)));
-    const y = Math.max(0, Math.min(gameCanvas.height - 1, Math.floor(((clientY - rect.top) / rect.height) * gameCanvas.height)));
+    const fbW = (activeSession && (activeSession.fbW || activeSession.activeFbW)) || gameCanvas.width;
+    const fbH = (activeSession && (activeSession.fbH || activeSession.activeFbH)) || gameCanvas.height;
+    const x = Math.max(0, Math.min(fbW - 1, Math.floor(((clientX - rect.left) / rect.width) * fbW)));
+    const y = Math.max(0, Math.min(fbH - 1, Math.floor(((clientY - rect.top) / rect.height) * fbH)));
     return { x, y };
   }
 
