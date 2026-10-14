@@ -568,6 +568,41 @@ input, textarea, select {
   position: relative;
 }
 
+.top-bar-pull-tab {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  height: 20px;
+  padding: 0 14px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  color: var(--sky-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.15s, background-color 0.15s, height 0.15s;
+  backdrop-filter: blur(4px);
+}
+
+.top-bar-pull-tab:hover,
+.top-bar-pull-tab:active {
+  opacity: 1;
+  height: 24px;
+  background: rgba(15, 23, 42, 0.92);
+}
+
+.top-bar-pull-tab svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
 .emu-main-row {
   flex: 1;
   display: flex;

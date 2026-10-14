@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" href="/assets/trihienkun_logo_master.png" />
   <link rel="apple-touch-icon" href="/assets/trihienkun_logo_master.png" />
   <title>J5Hienloader</title>
-  <link rel="stylesheet" href="/styles.css?v=5" />
+  <link rel="stylesheet" href="/styles.css?v=13" />
 </head>
 <body>
   <!-- Màn hình chờ khởi tạo hệ thống -->
@@ -68,7 +68,7 @@
 
   <!-- MÀN HÌNH 2: MÀN HÌNH TRÌNH GIẢ LẬP -->
   <div id="emulator-screen" class="screen hidden">
-    <header class="emu-app-bar">
+    <header id="emu-app-bar" class="emu-app-bar hidden">
       <button id="btn-emu-back" class="icon-btn" title="Về Thư viện (Game tiếp tục chạy nền)">
         <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
       </button>
@@ -106,9 +106,15 @@
       <button id="btn-emu-menu" class="icon-btn active-tool" title="Menu giả lập (Esc)">
         <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
       </button>
+      <button id="btn-emu-hide-bar" class="icon-btn" title="Ẩn thanh menu (Toàn màn hình)">
+        <svg viewBox="0 0 24 24"><path d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+      </button>
     </header>
 
     <div class="emu-body">
+      <button id="btn-show-top-bar" class="top-bar-pull-tab" title="Hiện thanh menu điều khiển">
+        <svg viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+      </button>
       <div class="emu-main-row">
         <!-- Bàn phím cánh trái khi xoay ngang (Cụm D-Pad + Phím chọn trái LSK) -->
         <aside id="keypad-left-wing" class="keypad-wing left-wing hidden">
@@ -237,7 +243,7 @@
   <!-- VÙNG CHỨA THÔNG BÁO NHANH (TOAST) -->
   <div id="toast-container"></div>
 
-  <script src="/j2me_core.js?v=12"></script>
-  <script src="/app.js?v=12"></script>
+  <script src="/j2me_core.js?v=13"></script>
+  <script src="/app.js?v=13"></script>
 </body>
 </html>

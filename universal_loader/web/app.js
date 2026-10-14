@@ -92,6 +92,7 @@
   const appListContainer = document.getElementById('app-list-container');
   const fabAddJar = document.getElementById('fab-add-jar');
 
+  const emuAppBar = document.getElementById('emu-app-bar');
   const btnEmuBack = document.getElementById('btn-emu-back');
   const btnEmuStop = document.getElementById('btn-emu-stop');
   const emuTitleArea = document.getElementById('emu-title-area');
@@ -109,6 +110,8 @@
   const btnEmuKeypad = document.getElementById('btn-emu-keypad');
   const btnEmuCanvasCmds = document.getElementById('btn-emu-canvas-cmds');
   const btnEmuMenu = document.getElementById('btn-emu-menu');
+  const btnEmuHideBar = document.getElementById('btn-emu-hide-bar');
+  const btnShowTopBar = document.getElementById('btn-show-top-bar');
 
   const viewportContainer = document.getElementById('viewport-container');
   const phoneFrameWrap = document.getElementById('phone-frame-wrap');
@@ -808,6 +811,7 @@
       isPaused: false,
       speedMultiplier: 1,
       showKeypad: true,
+      showTopBar: false,
       profile: null,
       activeFbW: 240,
       activeFbH: 320,
@@ -970,6 +974,14 @@
   // --- Thanh công cụ & bố cục màn hình giả lập ---
   function updateEmulatorChrome() {
     if (!activeSession) return;
+    const showBar = Boolean(activeSession.showTopBar);
+    if (emuAppBar) {
+      emuAppBar.classList.toggle('hidden', !showBar);
+    }
+    if (btnShowTopBar) {
+      btnShowTopBar.classList.toggle('hidden', showBar);
+    }
+
     emuTitleText.textContent = activeSession.app.title;
     if (activeSession.cloneIndex > 1) {
       emuSlotBadge.textContent = `Bản sao ${activeSession.cloneIndex}`;
@@ -1032,7 +1044,7 @@
       (cfg.orientation === 0 && window.innerWidth > window.innerHeight * 1.15);
 
     const totalW = window.innerWidth;
-    const totalH = Math.max(180, window.innerHeight - 44);
+    const totalH = Math.max(180, window.innerHeight - (activeSession.showTopBar ? 44 : 0));
     const scaleFactor = Math.max(0.5, Math.min(1.5, (cfg.vkScale || 100) / 100));
 
     let keyH;
@@ -3274,6 +3286,9 @@
 
         <!-- Lưới phím tắt tính năng nhanh -->
         <div class="ig-chip-grid">
+          <button class="ig-feature-chip ${s.showTopBar ? 'active' : ''}" id="ig-chip-topbar">
+            Thanh menu: ${s.showTopBar ? 'Hiện' : 'Ẩn'}
+          </button>
           <button class="ig-feature-chip ${s.showKeypad ? 'active' : ''}" id="ig-chip-keypad">
             Bàn phím: ${s.showKeypad ? 'Bật' : 'Tắt'}
           </button>
@@ -3374,6 +3389,14 @@
       cfg.vkAlpha = parseInt(alphaRng.value, 10);
       alphaLbl.textContent = `${cfg.vkAlpha}%`;
       persistAndApplyCfg();
+    };
+
+    document.getElementById('ig-chip-topbar').onclick = (e) => {
+      s.showTopBar = !s.showTopBar;
+      e.currentTarget.classList.toggle('active', s.showTopBar);
+      e.currentTarget.textContent = `Thanh menu: ${s.showTopBar ? 'Hiện' : 'Ẩn'}`;
+      updateEmulatorChrome();
+      updateEmulatorLayout();
     };
 
     document.getElementById('ig-chip-keypad').onclick = (e) => {
@@ -3667,6 +3690,24 @@
 
   btnEmuCanvasCmds.addEventListener('click', openCanvasCommandsSheet);
   btnEmuMenu.addEventListener('click', openInGameMenuSheet);
+
+  if (btnShowTopBar) {
+    btnShowTopBar.addEventListener('click', () => {
+      if (!activeSession) return;
+      activeSession.showTopBar = true;
+      updateEmulatorChrome();
+      updateEmulatorLayout();
+    });
+  }
+
+  if (btnEmuHideBar) {
+    btnEmuHideBar.addEventListener('click', () => {
+      if (!activeSession) return;
+      activeSession.showTopBar = false;
+      updateEmulatorChrome();
+      updateEmulatorLayout();
+    });
+  }
 
   // Quét sự kiện mạng TCP/HTTP tần số cao (4ms) để triệt tiêu độ trễ bắt tay gói tin đăng nhập
   setInterval(() => {

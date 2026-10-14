@@ -1,5 +1,5 @@
 // Phiên bản định danh Service Worker dùng để làm mới bộ nhớ đệm khi cập nhật
-const SW_VERSION = 'j5hienloader-v12-clean';
+const SW_VERSION = 'j5hienloader-v13-clean';
 
 // Kích hoạt ngay Service Worker mới khi cài đặt mà không chờ đóng trang
 self.addEventListener('install', () => {
