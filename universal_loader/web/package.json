@@ -1,0 +1,13 @@
+{
+  "name": "j5hienloader-web",
+  "version": "1.0.0",
+  "description": "J5Hienloader Universal J2ME MIDP 2.0 / CLDC 1.1 WebAssembly Emulator & TCP Relay Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "private": true
+}

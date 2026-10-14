@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="vi" translate="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="google" content="notranslate" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#262E37" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="J5Hienloader" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/png" href="/assets/trihienkun_logo_master.png" />
+  <link rel="apple-touch-icon" href="/assets/trihienkun_logo_master.png" />
+  <title>J5Hienloader</title>
+  <link rel="stylesheet" href="/styles.css?v=5" />
+</head>
+<body>
+  <!-- Màn hình chờ khởi tạo hệ thống -->
+  <div id="boot-overlay">
+    <img src="/assets/trihienkun_logo_master.png" alt="J5Hienloader" class="boot-logo" />
+    <div class="boot-spinner"></div>
+    <div id="boot-status" class="boot-status">Đang khởi tạo lõi C++20 WebAssembly...</div>
+  </div>
+
+  <!-- Phần tử chọn tệp ẩn phục vụ cài đặt gói .JAR / .JAD -->
+  <input type="file" id="jar-file-input" accept=".jar,.jad" multiple class="hidden" />
+
+  <!-- MÀN HÌNH 1: THƯ VIỆN ỨNG DỤNG -->
+  <div id="library-screen" class="screen">
+    <header class="app-bar">
+      <div id="lib-title-text" class="app-bar-title">J5Hienloader</div>
+      <div id="lib-search-wrap" class="search-input-wrap hidden">
+        <input type="text" id="lib-search-input" class="search-input" placeholder="Tìm kiếm ứng dụng..." />
+      </div>
+      <button id="btn-toggle-search" class="icon-btn" title="Tìm kiếm">
+        <svg id="icon-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <svg id="icon-search-close" class="hidden" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+      <button id="btn-open-sort" class="icon-btn" title="Sắp xếp">
+        <svg viewBox="0 0 24 24"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>
+      </button>
+      <button id="btn-open-global-settings" class="icon-btn" title="Thiết lập chung">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      </button>
+      <button id="btn-lib-more" class="icon-btn" title="Tùy chọn khác">
+        <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+      </button>
+    </header>
+
+    <!-- Khung quản lý nhanh các phiên trò chơi đang chạy nền -->
+    <div id="active-sessions-panel" class="active-sessions-panel hidden">
+      <div class="active-sessions-header">
+        <span class="active-dot"></span>
+        <span id="active-sessions-count-text" class="active-sessions-title">Phiên trò chơi đang chạy nền (0)</span>
+        <button id="btn-close-all-sessions" class="btn-close-all">Đóng tất cả</button>
+      </div>
+      <div id="active-sessions-chips" class="active-sessions-chips"></div>
+    </div>
+
+    <!-- Danh sách các ứng dụng đã cài đặt -->
+    <main id="app-list-container" class="app-list-container"></main>
+
+    <!-- Nút nổi cài đặt tệp .JAR / .JAD -->
+    <button id="fab-add-jar" class="fab-add" title="Cài đặt tệp .JAR / .JAD">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+    </button>
+  </div>
+
+  <!-- MÀN HÌNH 2: MÀN HÌNH TRÌNH GIẢ LẬP -->
+  <div id="emulator-screen" class="screen hidden">
+    <header class="emu-app-bar">
+      <button id="btn-emu-back" class="icon-btn" title="Về Thư viện (Game tiếp tục chạy nền)">
+        <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+      </button>
+      <div id="emu-title-area" class="emu-title-wrap" title="Nhấn để chuyển đổi phiên game">
+        <span id="emu-title-text" class="emu-title">J2ME Application</span>
+        <span id="emu-slot-badge" class="slot-badge">Bản chính</span>
+        <span id="emu-speed-badge" class="speed-badge hidden">2x</span>
+      </div>
+      <button id="btn-emu-stop" class="icon-btn stop-power-btn" title="Nhấn giữ để dừng game hoàn toàn">
+        <svg viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.12.94-4.03 2.43-5.32L6.01 5.26A8.932 8.932 0 0 0 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg>
+      </button>
+      <button id="btn-emu-canvas-cmds" class="icon-btn active-tool hidden" title="Lệnh của game">
+        <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+      </button>
+      <button id="btn-emu-scale" class="icon-btn active-tool wide-only-tool" title="Tỉ lệ màn hình">
+        <svg viewBox="0 0 24 24"><path d="M19 12h-2v3h-3v2h5v-5zM7 9h3V7H5v5h2V9zm14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>
+      </button>
+      <button id="btn-emu-speed" class="emu-text-btn wide-only-tool" title="Tốc độ mô phỏng">1x</button>
+      <button id="btn-emu-pause" class="icon-btn wide-only-tool" title="Tạm dừng / Tiếp tục">
+        <svg id="icon-emu-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        <svg id="icon-emu-play" class="hidden" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <div class="tabs-badge-wrap">
+        <button id="btn-emu-tabs" class="icon-btn" title="Quản lý các cửa sổ game đang chạy">
+          <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+        </button>
+        <span id="emu-tabs-count" class="tabs-count-badge">1</span>
+      </div>
+      <button id="btn-emu-orient" class="icon-btn" title="Xoay màn hình (Dọc / Ngang / Tự động)">
+        <svg viewBox="0 0 24 24"><path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 18.29 0 12 0l-.66.03 3.81 3.81 1.33-1.32zm-6.25-.77c-.59-.59-1.54-.59-2.12 0L1.75 8.11c-.59.59-.59 1.54 0 2.12l12.02 12.02c.59.59 1.54.59 2.12 0l6.36-6.36c.59-.59.59-1.54 0-2.12L10.23 1.75zm4.6 19.44L2.81 9.17l6.36-6.36 12.02 12.02-6.36 6.36zm-7.31.29C4.25 19.94 1.91 16.76 1.55 13H.05C.56 19.16 5.71 24 12 24l.66-.03-3.81-3.81-1.33 1.32z"/></svg>
+      </button>
+      <button id="btn-emu-keypad" class="icon-btn active-tool" title="Hiện / Ẩn bàn phím ảo">
+        <svg viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>
+      </button>
+      <button id="btn-emu-menu" class="icon-btn active-tool" title="Menu giả lập (Esc)">
+        <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+      </button>
+    </header>
+
+    <div class="emu-body">
+      <div class="emu-main-row">
+        <!-- Bàn phím cánh trái khi xoay ngang (Cụm D-Pad + Phím chọn trái LSK) -->
+        <aside id="keypad-left-wing" class="keypad-wing left-wing hidden">
+          <div class="vk-wing-inner">
+            <div class="vk-row">
+              <div class="vk-cell"><button class="vk-btn vk-soft" data-key="-6">LSK</button></div>
+            </div>
+            <div class="vk-wing-gap-left"></div>
+            <div class="vk-row">
+              <div class="vk-spacer"></div>
+              <div class="vk-cell"><button class="vk-btn vk-dpad" data-key="-1">▲</button></div>
+              <div class="vk-spacer"></div>
+            </div>
+            <div class="vk-row">
+              <div class="vk-cell"><button class="vk-btn vk-dpad" data-key="-3">◀</button></div>
+              <div class="vk-cell vk-cell-ok"><button class="vk-btn vk-ok" data-key="-5">OK</button></div>
+              <div class="vk-cell"><button class="vk-btn vk-dpad" data-key="-4">▶</button></div>
+            </div>
+            <div class="vk-row">
+              <div class="vk-spacer"></div>
+              <div class="vk-cell"><button class="vk-btn vk-dpad" data-key="-2">▼</button></div>
+              <div class="vk-spacer"></div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Khung hiển thị màn hình trò chơi trung tâm -->
+        <div id="viewport-container" class="viewport-container">
+          <div id="phone-frame-wrap" class="phone-frame-wrap">
+            <div class="phone-speaker-slot"></div>
+            <div class="phone-screen-bezel">
+              <canvas id="game-canvas" width="240" height="320"></canvas>
+            </div>
+          </div>
+          <div id="fps-overlay" class="fps-overlay hidden">60 FPS</div>
+          <div id="paused-banner" class="paused-banner hidden"><span>ĐÃ TẠM DỪNG</span></div>
+        </div>
+
+        <!-- Bàn phím cánh phải khi xoay ngang (Cụm phím số Numpad + Phím chọn phải RSK) -->
+        <aside id="keypad-right-wing" class="keypad-wing right-wing hidden">
+          <div class="vk-wing-inner">
+            <div class="vk-row">
+              <div class="vk-cell"><button class="vk-btn vk-soft" data-key="-7">RSK</button></div>
+            </div>
+            <div class="vk-wing-gap-right"></div>
+            <div class="vk-row">
+              <div class="vk-cell"><button class="vk-btn" data-key="49">1</button></div>
+              <div class="vk-cell"><button class="vk-btn" data-key="50">2</button></div>
+              <div class="vk-cell"><button class="vk-btn" data-key="51">3</button></div>
+            </div>
+            <div class="vk-row">
+              <div class="vk-cell"><button class="vk-btn" data-key="52">4</button></div>
+              <div class="vk-cell"><button class="vk-btn" data-key="53">5</button></div>
+              <div class="vk-cell"><button class="vk-btn" data-key="54">6</button></div>
+            </div>
+            <div class="vk-row">
+              <div class="vk-cell"><button class="vk-btn" data-key="55">7</button></div>
+              <div class="vk-cell"><button class="vk-btn" data-key="56">8</button></div>
+              <div class="vk-cell"><button class="vk-btn" data-key="57">9</button></div>
+            </div>
+            <div class="vk-row">
+              <div class="vk-cell"><button class="vk-btn vk-sym" data-key="42">*</button></div>
+              <div class="vk-cell"><button class="vk-btn" data-key="48">0</button></div>
+              <div class="vk-cell"><button class="vk-btn vk-sym" data-key="35">#</button></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Bàn phím ảo phía dưới khi xoay dọc (Phím chọn + D-Pad + Bàn phím số) -->
+      <section id="keypad-portrait" class="keypad-portrait">
+        <div id="vk-portrait-dpad" class="vk-section" data-kp-part="dpad">
+          <div class="vk-row">
+            <div class="vk-cell"><button class="vk-btn vk-soft" data-key="-6">LSK</button></div>
+            <div class="vk-spacer"></div>
+            <div class="vk-cell"><button class="vk-btn vk-dpad" data-key="-1">▲</button></div>
+            <div class="vk-spacer"></div>
+            <div class="vk-cell"><button class="vk-btn vk-soft" data-key="-7">RSK</button></div>
+          </div>
+          <div class="vk-row">
+            <div class="vk-spacer"></div>
+            <div class="vk-cell"><button class="vk-btn vk-dpad" data-key="-3">◀</button></div>
+            <div class="vk-cell vk-cell-ok"><button class="vk-btn vk-ok" data-key="-5">OK</button></div>
+            <div class="vk-cell"><button class="vk-btn vk-dpad" data-key="-4">▶</button></div>
+            <div class="vk-spacer"></div>
+          </div>
+          <div class="vk-row">
+            <div class="vk-spacer-2"></div>
+            <div class="vk-cell"><button class="vk-btn vk-dpad" data-key="-2">▼</button></div>
+            <div class="vk-spacer-2"></div>
+          </div>
+        </div>
+        <div id="vk-portrait-sep" class="vk-portrait-sep"></div>
+        <div id="vk-portrait-numpad" class="vk-section" data-kp-part="numpad">
+          <div class="vk-row">
+            <div class="vk-cell"><button class="vk-btn" data-key="49">1</button></div>
+            <div class="vk-cell"><button class="vk-btn" data-key="50">2</button></div>
+            <div class="vk-cell"><button class="vk-btn" data-key="51">3</button></div>
+          </div>
+          <div class="vk-row">
+            <div class="vk-cell"><button class="vk-btn" data-key="52">4</button></div>
+            <div class="vk-cell"><button class="vk-btn" data-key="53">5</button></div>
+            <div class="vk-cell"><button class="vk-btn" data-key="54">6</button></div>
+          </div>
+          <div class="vk-row">
+            <div class="vk-cell"><button class="vk-btn" data-key="55">7</button></div>
+            <div class="vk-cell"><button class="vk-btn" data-key="56">8</button></div>
+            <div class="vk-cell"><button class="vk-btn" data-key="57">9</button></div>
+          </div>
+          <div class="vk-row">
+            <div class="vk-cell"><button class="vk-btn vk-sym" data-key="42">*</button></div>
+            <div class="vk-cell"><button class="vk-btn" data-key="48">0</button></div>
+            <div class="vk-cell"><button class="vk-btn vk-sym" data-key="35">#</button></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- VÙNG CHỨA HỘP THOẠI VÀ BOTTOM SHEET -->
+  <div id="modal-root" class="modal-backdrop hidden"></div>
+
+  <!-- HỘP THOẠI MÀN HÌNH LCDUI CẤP CAO (Form / TextBox / List / Alert) -->
+  <div id="lcdui-modal" class="modal-backdrop hidden"></div>
+
+  <!-- VÙNG CHỨA THÔNG BÁO NHANH (TOAST) -->
+  <div id="toast-container"></div>
+
+  <script src="/j2me_core.js?v=11"></script>
+  <script src="/app.js?v=11"></script>
+</body>
+</html>

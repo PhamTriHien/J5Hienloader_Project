@@ -1,0 +1,25 @@
+{
+  "name": "J5Hienloader - Universal J2ME Emulator",
+  "short_name": "J5Hienloader",
+  "description": "Universal J2ME MIDP 2.0 / CLDC 1.1 Emulator trên trình duyệt di động iOS & Android",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#20272F",
+  "theme_color": "#262E37",
+  "icons": [
+    {
+      "src": "/assets/trihienkun_logo_master.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/trihienkun_logo_master.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

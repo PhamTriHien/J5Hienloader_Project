@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: j5hienloader-web
+    runtime: node
+    plan: free
+    rootDir: universal_loader/web
+    buildCommand: node -v
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
