@@ -108,11 +108,88 @@
   const btnEmuTabs = document.getElementById('btn-emu-tabs');
   const emuTabsCount = document.getElementById('emu-tabs-count');
   const btnEmuOrient = document.getElementById('btn-emu-orient');
+  const btnEmuFullscreen = document.getElementById('btn-emu-fullscreen');
+  const iconFsEnter = document.getElementById('icon-fs-enter');
+  const iconFsExit = document.getElementById('icon-fs-exit');
   const btnEmuKeypad = document.getElementById('btn-emu-keypad');
   const btnEmuCanvasCmds = document.getElementById('btn-emu-canvas-cmds');
   const btnEmuMenu = document.getElementById('btn-emu-menu');
   const btnEmuHideBar = document.getElementById('btn-emu-hide-bar');
   const btnShowTopBar = document.getElementById('btn-show-top-bar');
+
+  // Kiểm tra trình duyệt có đang ở chế độ Toàn màn hình (Fullscreen API) hay không
+  function isBrowserFullscreen() {
+    return Boolean(
+      document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+    );
+  }
+
+  // Yêu cầu trình duyệt ẩn thanh địa chỉ, thanh trạng thái và tràn viền vùng tai thỏ (Notch / Cutout)
+  async function enterBrowserFullscreen() {
+    if (isBrowserFullscreen()) return true;
+    const docEl = document.documentElement;
+    try {
+      if (docEl.requestFullscreen) {
+        await docEl.requestFullscreen({ navigationUI: 'hide' });
+        return true;
+      }
+      if (docEl.webkitRequestFullscreen) {
+        docEl.webkitRequestFullscreen();
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  // Thoát chế độ Toàn màn hình trình duyệt
+  async function exitBrowserFullscreen() {
+    if (!isBrowserFullscreen()) return;
+    try {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    } catch (_) {}
+  }
+
+  // Chuyển đổi trạng thái Toàn màn hình tràn viền trên thiết bị di động
+  async function toggleBrowserFullscreen(showFeedback = true) {
+    if (isBrowserFullscreen()) {
+      await exitBrowserFullscreen();
+      if (showFeedback) {
+        showToast('Đã thoát chế độ Toàn màn hình', 1400);
+      }
+    } else {
+      const ok = await enterBrowserFullscreen();
+      if (showFeedback) {
+        if (ok) {
+          showToast('Đã bật Toàn màn hình tràn viền (Ẩn thanh trình duyệt & tai thỏ)', 1600);
+        } else {
+          showToast('Trình duyệt này yêu cầu thêm vào Màn hình chính (PWA) để ẩn thanh trạng thái', 2400);
+        }
+      }
+    }
+    updateEmulatorChrome();
+    updateEmulatorLayout();
+  }
+
+  // Khóa hướng xoay màn hình vật lý khi đang ở chế độ Toàn màn hình (nếu trình duyệt hỗ trợ)
+  function applyScreenOrientationLock(orientCode) {
+    try {
+      if (!screen.orientation) return;
+      if (orientCode === 2 && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(() => {});
+      } else if (orientCode === 1 && screen.orientation.lock) {
+        screen.orientation.lock('portrait').catch(() => {});
+      } else if (orientCode === 0 && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
+    } catch (_) {}
+  }
 
   // Bảng định danh 5 chế độ kết xuất đồ họa (0: Gốc J2ME 1:1, 1: Sắc nét Sharp Pixel, 2: Mịn Linear, 3: HQ Scale4x, 4: HD 320p + HQ)
   const RENDER_MODE_BADGES = ['Gốc', 'Nét', 'Mịn', 'HQ', 'HD'];
@@ -724,6 +801,11 @@
   // --- Quản lý vòng đời phiên trò chơi (Đồng bộ với game_session.dart) ---
   function onAppTapped(app, forceNewClone = false) {
     ensureWebAudioStarted();
+    // Tự động kích hoạt chế độ Toàn màn hình tràn viền ngay trong cử chỉ chạm của người dùng trên thiết bị cảm ứng / di động
+    let fsPromise = null;
+    if (navigator.maxTouchPoints > 0 || window.innerWidth <= 1024) {
+      fsPromise = enterBrowserFullscreen();
+    }
     if (!forceNewClone) {
       const existing = sessions.find((s) => s.app.id === app.id);
       if (existing) {
@@ -731,11 +813,11 @@
         return;
       }
       if (globalAlwaysShowConfig) {
-        openAppConfigDialog(app, () => launchSession(app, false));
+        openAppConfigDialog(app, () => launchSession(app, false, null));
         return;
       }
     }
-    launchSession(app, forceNewClone);
+    launchSession(app, forceNewClone, fsPromise);
   }
 
   function nextFreeCloneSlot(appId) {
@@ -786,23 +868,35 @@
     }
     withCString(props, (p) => Module._j2me_core_system_load_properties(p));
 
-    const targetW = overrideW || cfg.screenWidth || 240;
-    const targetH = overrideH || cfg.screenHeight || 320;
-    session.activeFbW = targetW;
-    session.activeFbH = targetH;
-    session.fbW = targetW;
-    session.fbH = targetH;
-    session.lastScaleArg = 0;
-    gameCanvas.width = targetW;
-    gameCanvas.height = targetH;
-    cachedImageData = null;
-    Module._j2me_core_set_screen_dimensions(session.engine, targetW, targetH);
+    // Chỉ thiết lập kích thước FrameBuffer nội bộ C++ trước khi MIDlet bắt đầu chạy.
+    // Khi trò chơi đã khởi chạy (isStarted = true), giữ nguyên độ phân giải nội bộ ban đầu
+    // để các game J2ME chỉ đọc Canvas.getWidth()/getHeight() 1 lần trong hàm khởi tạo (như Chú Bé Rồng Online)
+    // không bị lệch tâm hoặc cắt lề khi người dùng thay đổi cấu hình hiển thị trực tiếp.
+    if (!session.isStarted) {
+      const targetW = overrideW || cfg.screenWidth || 240;
+      const targetH = overrideH || cfg.screenHeight || 320;
+      session.initFbW = targetW;
+      session.initFbH = targetH;
+      session.activeFbW = targetW;
+      session.activeFbH = targetH;
+      session.fbW = targetW;
+      session.fbH = targetH;
+      session.lastScaleArg = 0;
+      gameCanvas.width = targetW;
+      gameCanvas.height = targetH;
+      cachedImageData = null;
+      Module._j2me_core_set_screen_dimensions(session.engine, targetW, targetH);
+    } else {
+      session.lastScaleArg = 0;
+      cachedImageData = null;
+    }
+
     Module._j2me_core_set_volume(session.engine, cfg.soundEnabled ? cfg.soundVolume : 0);
     Module._j2me_core_set_fps_limit(session.engine, cfg.fpsLimit > 0 ? cfg.fpsLimit : 0);
     Module._j2me_core_keymap_set_layout(cfg.keyLayout);
   }
 
-  // Áp dụng chế độ kết xuất đồ họa mới, cập nhật độ phân giải nội bộ và vẽ lại khung hình tức thì
+  // Áp dụng chế độ kết xuất đồ họa mới và vẽ lại khung hình tức thì mà không làm lệch bố cục FrameBuffer đang chạy
   function applyRenderModeChange(session, newMode) {
     if (!session) return;
     const cfg = session.profile || readProfileConfigObject(session.app);
@@ -810,20 +904,13 @@
     cfg.filterLinear = cfg.renderMode !== 0;
     session.profile = cfg;
     writeProfileConfigObject(session.app, cfg);
-    if (cfg.autoMatch && cfg.scaleMode === 0 && !cfg.showPhoneFrame) {
-      const dims = computeViewportTargetDimensions(cfg);
-      if (dims.w > 0 && dims.h > 0) {
-        session.activeFbW = dims.w;
-        session.activeFbH = dims.h;
-        Module._j2me_core_set_screen_dimensions(session.engine, dims.w, dims.h);
-      }
-    }
+    session.lastScaleArg = 0;
     forceCanvasRedraw = true;
     updateEmulatorChrome();
     updateEmulatorLayout();
   }
 
-  function launchSession(app, forceNewClone = false) {
+  async function launchSession(app, forceNewClone = false, fsPromise = null) {
     const slot = forceNewClone ? nextFreeCloneSlot(app.id) : 0;
     const cloneIndex = slot + 1;
     let engine = Module._j2me_core_app_spawn(libraryEngine, app.id, slot);
@@ -851,11 +938,14 @@
       engine,
       ownsEngine,
       cloneIndex,
+      isStarted: false,
       isPaused: false,
       speedMultiplier: 1,
       showKeypad: true,
       showTopBar: false,
       profile: null,
+      initFbW: 240,
+      initFbH: 320,
       activeFbW: 240,
       activeFbH: 320,
       fbW: 240,
@@ -877,10 +967,20 @@
     updateEmulatorChrome();
     updateEmulatorLayout();
 
+    // Chờ trình duyệt di động hoàn tất mở rộng Toàn màn hình (nếu có) trước khi đo kích thước Viewport khởi tạo game
+    if (fsPromise) {
+      try {
+        await Promise.race([fsPromise, new Promise((r) => setTimeout(r, 180))]);
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      } catch (_) {}
+      updateEmulatorLayout();
+    }
+
     const dims = computeViewportTargetDimensions(session.profile);
     applySessionProfileToEngine(session, dims.w, dims.h);
 
     Module._j2me_core_start(engine);
+    session.isStarted = true;
     switchToSession(session);
   }
 
@@ -908,6 +1008,7 @@
 
     session.engine = newEngine;
     session.ownsEngine = ownsEngine;
+    session.isStarted = false;
     session.isPaused = false;
     const cfg = readProfileConfigObject(session.app);
     const dims =
@@ -917,6 +1018,7 @@
     applySessionProfileToEngine(session, dims.w, dims.h);
     Module._j2me_core_set_speed_multiplier(newEngine, session.speedMultiplier);
     Module._j2me_core_start(newEngine);
+    session.isStarted = true;
     Module._j2me_core_set_background(newEngine, false);
 
     shownScreenSerial = 0;
@@ -1072,6 +1174,15 @@
       btnEmuOrient.classList.remove('active-tool');
     }
 
+    const isFs = isBrowserFullscreen();
+    if (btnEmuFullscreen) {
+      btnEmuFullscreen.classList.toggle('active-tool', isFs);
+    }
+    if (iconFsEnter && iconFsExit) {
+      iconFsEnter.classList.toggle('hidden', isFs);
+      iconFsExit.classList.toggle('hidden', !isFs);
+    }
+
     if (activeSession.isPaused) {
       pausedBanner.classList.remove('hidden');
     } else {
@@ -1090,13 +1201,19 @@
     const cfg = activeSession.profile || readProfileConfigObject(activeSession.app);
     const vkType = cfg.vkType || 0; // 0: Đầy đủ, 1: Chỉ D-Pad, 2: Chỉ phím số
 
+    if (isBrowserFullscreen()) {
+      applyScreenOrientationLock(cfg.orientation || 0);
+    }
+
     // Xác định chế độ màn hình Dọc hay Ngang chia đôi hai cánh (đồng bộ với emulator_screen.dart)
     const isLandscape =
       cfg.orientation === 2 ||
       (cfg.orientation === 0 && window.innerWidth > window.innerHeight * 1.15);
 
+    // Thanh công cụ phía trên (emu-app-bar) là lớp phủ nổi (position: absolute),
+    // nên chiều cao vùng hiển thị luôn trọn vẹn 100% chiều cao cửa sổ thiết bị
     const totalW = window.innerWidth;
-    const totalH = Math.max(180, window.innerHeight - (activeSession.showTopBar ? 44 : 0));
+    const totalH = Math.max(180, window.innerHeight);
     const scaleFactor = Math.max(0.5, Math.min(1.5, (cfg.vkScale || 100) / 100));
 
     let keyH;
@@ -1198,40 +1315,12 @@
     const availW = Math.max(64, rect.width - framePadW);
     const availH = Math.max(64, rect.height - framePadH);
 
-    // Tự động khớp độ phân giải theo vùng hiển thị thực tế (đồng bộ với game_viewport.dart)
-    if (!document.hidden && cfg.autoMatch && cfg.scaleMode === 0 && !cfg.showPhoneFrame && availW > 80 && availH > 80) {
-      clearTimeout(autoMatchDebounceTimer);
-      autoMatchDebounceTimer = setTimeout(() => {
-        if (document.hidden || !activeSession || !activeSession.profile || !activeSession.profile.autoMatch) return;
-        const curRect = viewportContainer.getBoundingClientRect();
-        const curW = Math.max(64, curRect.width - (activeSession.profile.showPhoneFrame ? 40 : 0));
-        const curH = Math.max(64, curRect.height - (activeSession.profile.showPhoneFrame ? 68 : 0));
-        if (curW <= 80 || curH <= 80) return;
-        const rawShort = Math.min(cfg.screenWidth || 240, cfg.screenHeight || 320);
-        const baseShort = cfg.renderMode === 4 ? Math.max(320, rawShort) : rawShort;
-        let targetW;
-        let targetH;
-        if (curW >= curH) {
-          targetH = baseShort;
-          targetW = Math.round((targetH * curW) / curH);
-        } else {
-          targetW = baseShort;
-          targetH = Math.round((targetW * curH) / curW);
-        }
-        targetW = Math.max(128, Math.min(2048, targetW));
-        targetH = Math.max(128, Math.min(2048, targetH));
-        if (Math.abs((activeSession.activeFbW || activeSession.fbW || 240) - targetW) >= 4 ||
-            Math.abs((activeSession.activeFbH || activeSession.fbH || 320) - targetH) >= 4) {
-          activeSession.activeFbW = targetW;
-          activeSession.activeFbH = targetH;
-          forceCanvasRedraw = true;
-          Module._j2me_core_set_screen_dimensions(activeSession.engine, targetW, targetH);
-        }
-      }, 250);
-    }
-
-    const fbW = activeSession.fbW || activeSession.activeFbW || 240;
-    const fbH = activeSession.fbH || activeSession.activeFbH || 320;
+    // Giữ cố định độ phân giải FrameBuffer nội bộ (fbW x fbH) của phiên đang chạy
+    // và co giãn mượt vùng hiển thị CSS của #game-canvas khớp 100% vùng trống thực tế (availW x availH).
+    // Nhờ đó khi ẩn/hiện bàn phím ảo, ẩn/hiện thanh menu hoặc mở rộng tràn viền tai thỏ,
+    // hình ảnh game luôn lấp đầy màn hình ngay lập tức mà không bao giờ bị cắt lề hay cần khởi động lại game.
+    const fbW = activeSession.fbW || activeSession.initFbW || activeSession.activeFbW || 240;
+    const fbH = activeSession.fbH || activeSession.initFbH || activeSession.activeFbH || 320;
     let dispW = fbW;
     let dispH = fbH;
 
@@ -1256,7 +1345,7 @@
       dispW = Math.round(fbW * s);
       dispH = Math.round(fbH * s);
     } else {
-      // 0: Vừa màn hình (Fit)
+      // 0: Vừa màn hình (Fit) — Khi bật Tự động khớp (autoMatch), lấp đầy 100% khung hiển thị tràn viền
       if (cfg.autoMatch && !cfg.showPhoneFrame) {
         dispW = Math.round(availW);
         dispH = Math.round(availH);
@@ -1272,11 +1361,22 @@
     gameCanvas.style.transform = cfg.rotateCanvas ? 'rotate(90deg)' : 'none';
   }
 
-  window.addEventListener('resize', () => {
+  // Lắng nghe mọi thay đổi kích thước cửa sổ, khung nhìn di động (visualViewport) và trạng thái Toàn màn hình
+  const onViewportDimensionsChanged = () => {
     if (activeSession && !document.hidden) {
+      updateEmulatorChrome();
       updateEmulatorLayout();
     }
+  };
+  window.addEventListener('resize', onViewportDimensionsChanged);
+  window.addEventListener('orientationchange', () => {
+    setTimeout(onViewportDimensionsChanged, 120);
   });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', onViewportDimensionsChanged);
+  }
+  document.addEventListener('fullscreenchange', onViewportDimensionsChanged);
+  document.addEventListener('webkitfullscreenchange', onViewportDimensionsChanged);
 
   // --- Vòng lặp kết xuất bộ đệm khung hình (Framebuffer Render Loop) ---
   let cachedImageData = null;
@@ -3374,6 +3474,9 @@
 
         <!-- Lưới phím tắt tính năng nhanh -->
         <div class="ig-chip-grid">
+          <button class="ig-feature-chip ${isBrowserFullscreen() ? 'active' : ''}" id="ig-chip-fullscreen">
+            Toàn màn hình: ${isBrowserFullscreen() ? 'Bật' : 'Tắt'}
+          </button>
           <button class="ig-feature-chip ${s.showTopBar ? 'active' : ''}" id="ig-chip-topbar">
             Thanh menu: ${s.showTopBar ? 'Hiện' : 'Ẩn'}
           </button>
@@ -3470,8 +3573,11 @@
         const tmp = cfg.screenWidth;
         cfg.screenWidth = cfg.screenHeight;
         cfg.screenHeight = tmp;
-        Module._j2me_core_set_screen_dimensions(s.engine, cfg.screenWidth, cfg.screenHeight);
+        if (!s.isStarted) {
+          Module._j2me_core_set_screen_dimensions(s.engine, cfg.screenWidth, cfg.screenHeight);
+        }
       }
+      applyScreenOrientationLock(cfg.orientation);
       persistAndApplyCfg();
     };
 
@@ -3492,6 +3598,17 @@
       alphaLbl.textContent = `${cfg.vkAlpha}%`;
       persistAndApplyCfg();
     };
+
+    const igChipFs = document.getElementById('ig-chip-fullscreen');
+    if (igChipFs) {
+      igChipFs.onclick = async (e) => {
+        const btn = e.currentTarget;
+        await toggleBrowserFullscreen(true);
+        const fsNow = isBrowserFullscreen();
+        btn.classList.toggle('active', fsNow);
+        btn.textContent = `Toàn màn hình: ${fsNow ? 'Bật' : 'Tắt'}`;
+      };
+    }
 
     document.getElementById('ig-chip-topbar').onclick = (e) => {
       s.showTopBar = !s.showTopBar;
@@ -3780,14 +3897,24 @@
         const tmp = cfg.screenWidth;
         cfg.screenWidth = cfg.screenHeight;
         cfg.screenHeight = tmp;
-        Module._j2me_core_set_screen_dimensions(activeSession.engine, cfg.screenWidth, cfg.screenHeight);
+        if (!activeSession.isStarted) {
+          Module._j2me_core_set_screen_dimensions(activeSession.engine, cfg.screenWidth, cfg.screenHeight);
+        }
       }
       activeSession.profile = cfg;
       writeProfileConfigObject(activeSession.app, cfg);
+      applyScreenOrientationLock(cfg.orientation);
       updateEmulatorChrome();
       updateEmulatorLayout();
       const labels = { 0: 'Tự động (Auto)', 1: 'Màn hình Dọc', 2: 'Màn hình Ngang' };
       showToast(`Hướng màn hình: ${labels[cfg.orientation]}`);
+    });
+  }
+
+  // Nút bật/tắt chế độ Toàn màn hình tràn viền vùng tai thỏ trên thanh công cụ giả lập
+  if (btnEmuFullscreen) {
+    btnEmuFullscreen.addEventListener('click', () => {
+      toggleBrowserFullscreen(true);
     });
   }
 

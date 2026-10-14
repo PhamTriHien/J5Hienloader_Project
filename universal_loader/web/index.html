@@ -5,6 +5,7 @@
   <meta name="google" content="notranslate" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#262E37" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="J5Hienloader" />
@@ -12,7 +13,7 @@
   <link rel="icon" type="image/png" href="/assets/trihienkun_logo_master.png" />
   <link rel="apple-touch-icon" href="/assets/trihienkun_logo_master.png" />
   <title>J5Hienloader</title>
-  <link rel="stylesheet" href="/styles.css?v=14" />
+  <link rel="stylesheet" href="/styles.css?v=15" />
 </head>
 <body>
   <!-- Màn hình chờ khởi tạo hệ thống -->
@@ -100,6 +101,10 @@
       </div>
       <button id="btn-emu-orient" class="icon-btn" title="Xoay màn hình (Dọc / Ngang / Tự động)">
         <svg viewBox="0 0 24 24"><path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 18.29 0 12 0l-.66.03 3.81 3.81 1.33-1.32zm-6.25-.77c-.59-.59-1.54-.59-2.12 0L1.75 8.11c-.59.59-.59 1.54 0 2.12l12.02 12.02c.59.59 1.54.59 2.12 0l6.36-6.36c.59-.59.59-1.54 0-2.12L10.23 1.75zm4.6 19.44L2.81 9.17l6.36-6.36 12.02 12.02-6.36 6.36zm-7.31.29C4.25 19.94 1.91 16.76 1.55 13H.05C.56 19.16 5.71 24 12 24l.66-.03-3.81-3.81-1.33 1.32z"/></svg>
+      </button>
+      <button id="btn-emu-fullscreen" class="icon-btn" title="Toàn màn hình tràn viền tai thỏ (Fullscreen)">
+        <svg id="icon-fs-enter" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        <svg id="icon-fs-exit" class="hidden" viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
       </button>
       <button id="btn-emu-keypad" class="icon-btn active-tool" title="Hiện / Ẩn bàn phím ảo">
         <svg viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>
@@ -245,7 +250,7 @@
   <!-- VÙNG CHỨA THÔNG BÁO NHANH (TOAST) -->
   <div id="toast-container"></div>
 
-  <script src="/j2me_core.js?v=14"></script>
-  <script src="/app.js?v=14"></script>
+  <script src="/j2me_core.js?v=15"></script>
+  <script src="/app.js?v=15"></script>
 </body>
 </html>
