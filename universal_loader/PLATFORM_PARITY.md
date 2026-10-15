@@ -7,10 +7,13 @@ HTTP transport and OS lifecycle integration.
 ## Configuration
 
 - `UiScaleMode` stores fit, fitWidth, stretch, original1x, scale2x or scale3x.
+- `RenderMode` stores `native` (crisp 1:1 nearest-neighbor / integer prescale), `xbr`, `hq2x`, `hd320`, `crt` (scanlines + vignette), or `lcd` (Nokia matrix), paired with `PixelGrid` and `ForceFullscreen` across both Native Flutter (`ui_app`) and Web/PWA (`web`).
 - Legacy `ScreenScaleType` keeps the core meaning: 0 original, 1 fit, 2 stretch.
+- The top emulator toolbar auto-hides on game launch for 100% fullscreen gameplay, with a floating `Menu` toggle pill respecting safe-area insets and notch cutouts (`shortEdges` on Android 9+, `viewport-fit=cover` on Web/iOS).
 - `ScreenAutoMatch` matches the canvas to the available game viewport in fit mode.
   Fixed resolution presets disable it. Native text input and modal dialogs do not
   trigger canvas resizing. Rotation and window changes settle before resizing.
+- Changing screen dimensions, scale mode, orientation, fullscreen state, phone frame, or toggling/changing the virtual keypad while a game is running pauses the session and displays a mandatory restart confirmation dialog (`Yêu cầu khởi động lại trò chơi`) with an Undo (`Hoàn tác`) option so MIDlets re-initialize `Canvas.getWidth()` / `Canvas.getHeight()` cleanly.
 - Screen filter, touch input, FPS display, keypad shape, opacity and haptics are
   applied from the same profile on every platform.
 - FPS limit 0 disables the FPS cap; the core retains a minimum 1 ms loop sleep.
